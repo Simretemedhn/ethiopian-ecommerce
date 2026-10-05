@@ -8,42 +8,61 @@ const {
     deleteProduct
 } = require("../controllers/productController");
 
+const asyncHandler =
+    require("../utils/asyncHandler");
+
+
 const router =
     express.Router();
 
 
+// ============================================
 // GET ALL PRODUCTS
+// ============================================
+
 router.get(
     "/",
-    getProducts
+    asyncHandler(getProducts)
 );
 
 
+// ============================================
 // GET ONE PRODUCT
+// ============================================
+
 router.get(
     "/:id",
-    getProductById
+    asyncHandler(getProductById)
 );
 
 
+// ============================================
 // CREATE PRODUCT
+// ============================================
+
 router.post(
     "/",
-    createProduct
+    asyncHandler(createProduct)
 );
 
 
+// ============================================
 // UPDATE PRODUCT
+// ============================================
+
 router.put(
     "/:id",
-    updateProduct
+    asyncHandler(updateProduct)
 );
 
 
+// ============================================
 // DELETE PRODUCT
+// ============================================
+
 router.delete(
     "/:id",
-    deleteProduct
+    asyncHandler(deleteProduct)
 );
 
 

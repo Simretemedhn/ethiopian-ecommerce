@@ -9,7 +9,7 @@ const ApiError =
 // GET ALL PRODUCTS
 // ============================================
 
-const getProducts = (req, res) => {
+const getProducts = async (req, res) => {
 
     const filters = {
 
@@ -38,8 +38,12 @@ const getProducts = (req, res) => {
                 : 10
     };
 
+
     const result =
-        productService.getAllProducts(filters);
+        await productService.getAllProducts(
+            filters
+        );
+
 
     res.json(result);
 };
@@ -49,13 +53,16 @@ const getProducts = (req, res) => {
 // GET ONE PRODUCT
 // ============================================
 
-const getProductById = (req, res) => {
-
-    const productId =
-        req.params.id;
+const getProductById = async (
+    req,
+    res
+) => {
 
     const product =
-        productService.getProductById(productId);
+        await productService.getProductById(
+            req.params.id
+        );
+
 
     if (!product) {
 
@@ -65,6 +72,7 @@ const getProductById = (req, res) => {
         );
     }
 
+
     res.json(product);
 };
 
@@ -73,9 +81,14 @@ const getProductById = (req, res) => {
 // CREATE PRODUCT
 // ============================================
 
-const createProduct = (req, res) => {
+const createProduct = async (
+    req,
+    res
+) => {
 
-    const productData = req.body;
+    const productData =
+        req.body;
+
 
     if (
         !productData.name ||
@@ -89,6 +102,7 @@ const createProduct = (req, res) => {
             "Name, description, price, and category are required"
         );
     }
+
 
     if (
         typeof productData.price !== "number" ||
@@ -101,12 +115,16 @@ const createProduct = (req, res) => {
         );
     }
 
+
     const newProduct =
-        productService.createProduct(
+        await productService.createProduct(
             productData
         );
 
-    res.status(201).json(newProduct);
+
+    res.status(201).json(
+        newProduct
+    );
 };
 
 
@@ -114,13 +132,14 @@ const createProduct = (req, res) => {
 // UPDATE PRODUCT
 // ============================================
 
-const updateProduct = (req, res) => {
-
-    const productId =
-        req.params.id;
+const updateProduct = async (
+    req,
+    res
+) => {
 
     const productData =
         req.body;
+
 
     if (
         !productData.name ||
@@ -133,13 +152,15 @@ const updateProduct = (req, res) => {
             400,
             "Name, description, price, and category are required"
         );
-    } 
+    }
+
 
     const updatedProduct =
-        productService.updateProduct(
-            productId,
+        await productService.updateProduct(
+            req.params.id,
             productData
         );
+
 
     if (!updatedProduct) {
 
@@ -149,7 +170,8 @@ const updateProduct = (req, res) => {
         );
     }
 
-    res.status(200).json(
+
+    res.json(
         updatedProduct
     );
 };
@@ -159,15 +181,16 @@ const updateProduct = (req, res) => {
 // DELETE PRODUCT
 // ============================================
 
-const deleteProduct = (req, res) => {
-
-    const productId =
-        req.params.id;
+const deleteProduct = async (
+    req,
+    res
+) => {
 
     const deletedProduct =
-        productService.deleteProduct(
-            productId
+        await productService.deleteProduct(
+            req.params.id
         );
+
 
     if (!deletedProduct) {
 
@@ -177,7 +200,8 @@ const deleteProduct = (req, res) => {
         );
     }
 
-    res.status(200).json({
+
+    res.json({
 
         message:
             "Product deleted successfully",
@@ -189,7 +213,7 @@ const deleteProduct = (req, res) => {
 
 
 // ============================================
-// EXPORT CONTROLLERS
+// EXPORT
 // ============================================
 
 module.exports = {

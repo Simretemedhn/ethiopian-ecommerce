@@ -1,14 +1,14 @@
-const products = require("../data/products");
-const ApiError = require("../utils/ApiError");
+const Product = require("../models/Product");
+
 
 // ============================================
 // GET ALL PRODUCTS
 // ============================================
 
-const getAllProducts = (filters = {}) => {
+const getAllProducts = async (filters = {}) => {
 
-    // Create a copy of the original products array.
-    let result = [...products];
+    const query = {};
+
 
     // ----------------------------------------
     // SEARCH BY NAME
@@ -16,12 +16,12 @@ const getAllProducts = (filters = {}) => {
 
     if (filters.search) {
 
-        result = result.filter((product) =>
-            product.name
-                .toLowerCase()
-                .includes(filters.search.toLowerCase())
-        );
+        query.name = {
+            $regex: filters.search,
+            $options: "i"
+        };
     }
+
 
     // ----------------------------------------
     // FILTER BY CATEGORY
@@ -29,63 +29,91 @@ const getAllProducts = (filters = {}) => {
 
     if (filters.category) {
 
-        result = result.filter(
-            (product) =>
-                product.category.toLowerCase() ===
-                filters.category.toLowerCase()
-        );
+        query.category = {
+            $regex: `^${filters.category}$`,
+            $options: "i"
+        };
     }
 
+
     // ----------------------------------------
-    // MINIMUM PRICE
+    // FILTER BY PRICE
     // ----------------------------------------
 
-    if (filters.minPrice !== undefined) {
+    if (
+        filters.minPrice !== undefined ||
+        filters.maxPrice !== undefined
+    ) {
 
-        result = result.filter(
-            (product) =>
-                product.price >= filters.minPrice
-        );
+        query.price = {};
+
+        if (filters.minPrice !== undefined) {
+
+            query.price.$gte =
+                filters.minPrice;
+        }
+
+        if (filters.maxPrice !== undefined) {
+
+            query.price.$lte =
+                filters.maxPrice;
+        }
     }
 
-    // ----------------------------------------
-    // MAXIMUM PRICE
-    // ----------------------------------------
-
-    if (filters.maxPrice !== undefined) {
-
-        result = result.filter(
-            (product) =>
-                product.price <= filters.maxPrice
-        );
-    }
 
     // ----------------------------------------
     // PAGINATION
     // ----------------------------------------
 
-    const page = filters.page || 1;
-    const limit = filters.limit || 10;
+    const page =
+        filters.page || 1;
 
-    const startIndex =
+    const limit =
+        filters.limit || 10;
+
+    const skip =
         (page - 1) * limit;
 
-    const paginatedProducts =
-        result.slice(
-            startIndex,
-            startIndex + limit
-        );
+
+    // ----------------------------------------
+    // QUERY MONGODB
+    // ----------------------------------------
+
+    const products =
+        await Product
+            .find(query)
+            .skip(skip)
+            .limit(limit);
+
+
+    // ----------------------------------------
+    // COUNT MATCHING DOCUMENTS
+    // ----------------------------------------
+
+    const totalProducts =
+        await Product.countDocuments(query);
+
+
+    // ----------------------------------------
+    // RETURN RESULT
+    // ----------------------------------------
 
     return {
-        products: paginatedProducts,
+
+        products,
 
         pagination: {
+
             page,
+
             limit,
-            totalProducts: result.length,
-            totalPages: Math.ceil(
-                result.length / limit
-            )
+
+            totalProducts,
+
+            totalPages:
+                Math.ceil(
+                    totalProducts / limit
+                )
         }
     };
 };
@@ -95,11 +123,9 @@ const getAllProducts = (filters = {}) => {
 // GET PRODUCT BY ID
 // ============================================
 
-const getProductById = (id) => {
+const getProductById = async (id) => {
 
-    return products.find(
-        (product) => product.id === id
-    );
+    return await Product.findById(id);
 };
 
 
@@ -107,45 +133,11 @@ const getProductById = (id) => {
 // CREATE PRODUCT
 // ============================================
 
-const createProduct = (productData) => {
+const createProduct = async (productData) => {
 
-    const newProduct = {
-
-        id: `p${Date.now()}`,
-
-        name: productData.name,
-
-        description: productData.description,
-
-        price: productData.price,
-
-        category: productData.category
-    };
-
-    products.push(newProduct);
-
-    return newProduct;
-};
-
-
-// ============================================
-// DELETE PRODUCT
-// ============================================
-
-const deleteProduct = (id) => {
-
-    const index = products.findIndex(
-        (product) => product.id === id
+    return await Product.create(
+        productData
     );
-
-    if (index === -1) {
-        return null;
-    }
-
-    const deletedProduct =
-        products.splice(index, 1);
-
-    return deletedProduct[0];
 };
 
 
@@ -153,40 +145,45 @@ const deleteProduct = (id) => {
 // UPDATE PRODUCT
 // ============================================
 
-const updateProduct = (id, productData) => {
+const updateProduct = async (
+    id,
+    productData
+) => {
 
-    const product = products.find(
-        (product) => product.id === id
+    return await Product.findByIdAndUpdate(
+        id,
+        productData,
+        {
+            new: true,
+            runValidators: true
+        }
     );
-
-    if (!product) {
-        return null;
-    }
-
-    product.name =
-        productData.name;
-
-    product.description =
-        productData.description;
-
-    product.price =
-        productData.price;
-
-    product.category =
-        productData.category;
-
-    return product;
 };
 
 
 // ============================================
-// EXPORT FUNCTIONS
+// DELETE PRODUCT
+// ============================================
+
+const deleteProduct = async (id) => {
+
+    return await Product.findByIdAndDelete(id);
+};
+
+
+// ============================================
+// EXPORT
 // ============================================
 
 module.exports = {
+
     getAllProducts,
+
     getProductById,
+
     createProduct,
-    deleteProduct,
-    updateProduct
+
+    updateProduct,
+
+    deleteProduct
 };

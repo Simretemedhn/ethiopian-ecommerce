@@ -1,19 +1,7 @@
 const express = require("express");
 
-require("dotenv").config();
-
-
-// ============================================
-// IMPORT ROUTES
-// ============================================
-
 const productRoutes =
     require("./routes/productRoutes");
-
-
-// ============================================
-// IMPORT MIDDLEWARE
-// ============================================
 
 const notFound =
     require("./middleware/notFoundMiddleware");
@@ -22,10 +10,6 @@ const errorHandler =
     require("./middleware/errorMiddleware");
 
 
-// ============================================
-// CREATE EXPRESS APPLICATION
-// ============================================
-
 const app = express();
 
 
@@ -33,12 +17,11 @@ const app = express();
 // GLOBAL MIDDLEWARE
 // ============================================
 
-// Tell Express to understand JSON request bodies.
 app.use(express.json());
 
 
 // ============================================
-// API ROUTES
+// ROUTES
 // ============================================
 
 app.use(
@@ -48,34 +31,21 @@ app.use(
 
 
 // ============================================
-// 404 MIDDLEWARE
+// 404 HANDLER
 // ============================================
 
-// This must come AFTER our routes.
 app.use(notFound);
 
 
 // ============================================
-// ERROR HANDLING MIDDLEWARE
+// ERROR HANDLER
 // ============================================
 
-// This should be the final middleware.
 app.use(errorHandler);
 
 
 // ============================================
-// SERVER
+// EXPORT APP
 // ============================================
 
-const PORT =
-    process.env.PORT || 5000;
-
-app.listen(
-    PORT,
-    () => {
-
-        console.log(
-            `Server running on http://localhost:${PORT}`
-        );
-    }
-);
+module.exports = app;
