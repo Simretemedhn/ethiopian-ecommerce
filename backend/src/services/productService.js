@@ -1,23 +1,44 @@
-const Product = require("../models/Product");
+const Product =
+    require("../models/Product");
+
+
+// ============================================
+// ESCAPE REGEX SPECIAL CHARACTERS
+// ============================================
+
+const escapeRegex = (value) => {
+
+    return value.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+    );
+};
 
 
 // ============================================
 // GET ALL PRODUCTS
 // ============================================
 
-const getAllProducts = async (filters = {}) => {
+const getAllProducts = async (
+    filters = {}
+) => {
 
     const query = {};
 
 
     // ----------------------------------------
-    // SEARCH BY NAME
+    // SEARCH BY PRODUCT NAME
     // ----------------------------------------
 
     if (filters.search) {
 
+        const safeSearch =
+            escapeRegex(
+                filters.search
+            );
+
         query.name = {
-            $regex: filters.search,
+            $regex: safeSearch,
             $options: "i"
         };
     }
@@ -29,8 +50,13 @@ const getAllProducts = async (filters = {}) => {
 
     if (filters.category) {
 
+        const safeCategory =
+            escapeRegex(
+                filters.category
+            );
+
         query.category = {
-            $regex: `^${filters.category}$`,
+            $regex: `^${safeCategory}$`,
             $options: "i"
         };
     }
@@ -47,13 +73,17 @@ const getAllProducts = async (filters = {}) => {
 
         query.price = {};
 
-        if (filters.minPrice !== undefined) {
+        if (
+            filters.minPrice !== undefined
+        ) {
 
             query.price.$gte =
                 filters.minPrice;
         }
 
-        if (filters.maxPrice !== undefined) {
+        if (
+            filters.maxPrice !== undefined
+        ) {
 
             query.price.$lte =
                 filters.maxPrice;
@@ -76,7 +106,7 @@ const getAllProducts = async (filters = {}) => {
 
 
     // ----------------------------------------
-    // QUERY MONGODB
+    // DATABASE QUERIES
     // ----------------------------------------
 
     const products =
@@ -86,12 +116,10 @@ const getAllProducts = async (filters = {}) => {
             .limit(limit);
 
 
-    // ----------------------------------------
-    // COUNT MATCHING DOCUMENTS
-    // ----------------------------------------
-
     const totalProducts =
-        await Product.countDocuments(query);
+        await Product.countDocuments(
+            query
+        );
 
 
     // ----------------------------------------
@@ -123,9 +151,13 @@ const getAllProducts = async (filters = {}) => {
 // GET PRODUCT BY ID
 // ============================================
 
-const getProductById = async (id) => {
+const getProductById = async (
+    id
+) => {
 
-    return await Product.findById(id);
+    return await Product.findById(
+        id
+    );
 };
 
 
@@ -133,7 +165,9 @@ const getProductById = async (id) => {
 // CREATE PRODUCT
 // ============================================
 
-const createProduct = async (productData) => {
+const createProduct = async (
+    productData
+) => {
 
     return await Product.create(
         productData
@@ -165,9 +199,13 @@ const updateProduct = async (
 // DELETE PRODUCT
 // ============================================
 
-const deleteProduct = async (id) => {
+const deleteProduct = async (
+    id
+) => {
 
-    return await Product.findByIdAndDelete(id);
+    return await Product.findByIdAndDelete(
+        id
+    );
 };
 
 

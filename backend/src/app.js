@@ -1,4 +1,5 @@
-const express = require("express");
+const express =
+    require("express");
 
 const productRoutes =
     require("./routes/productRoutes");
@@ -9,15 +10,35 @@ const authRoutes =
 const userRoutes =
     require("./routes/userRoutes");
 
+const cartRoutes =
+    require("./routes/cartRoutes");
+
+const orderRoutes =
+    require("./routes/orderRoutes");
+
 const notFound =
     require("./middleware/notFoundMiddleware");
 
 const errorHandler =
     require("./middleware/errorMiddleware");
 
-const app = express();
 
-app.use(express.json());
+const app =
+    express();
+
+
+// ============================================
+// GLOBAL MIDDLEWARE
+// ============================================
+
+app.use(
+    express.json()
+);
+
+
+// ============================================
+// ROUTES
+// ============================================
 
 app.use(
     "/api/products",
@@ -34,8 +55,34 @@ app.use(
     userRoutes
 );
 
-app.use(notFound);
+app.use(
+    "/api/cart",
+    cartRoutes
+);
 
-app.use(errorHandler);
+app.use(
+    "/api/orders",
+    orderRoutes
+);
 
-module.exports = app;
+
+// ============================================
+// 404 HANDLER
+// ============================================
+
+app.use(
+    notFound
+);
+
+
+// ============================================
+// GLOBAL ERROR HANDLER
+// ============================================
+
+app.use(
+    errorHandler
+);
+
+
+module.exports =
+    app;

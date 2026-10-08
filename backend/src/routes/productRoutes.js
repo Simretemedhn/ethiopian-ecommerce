@@ -23,27 +23,39 @@ const validate =
 const {
     createProductSchema,
     updateProductSchema,
-    getProductSchema
+    getProductSchema,
+    getProductsSchema
 } = require("../validators/productValidator");
 
 const router =
     express.Router();
 
-// PUBLIC
 
+// ============================================
+// PUBLIC PRODUCT ROUTES
+// ============================================
+
+// GET ALL PRODUCTS
 router.get(
     "/",
+    validate(getProductsSchema),
     asyncHandler(getProducts)
 );
 
+
+// GET ONE PRODUCT
 router.get(
     "/:id",
     validate(getProductSchema),
     asyncHandler(getProductById)
 );
 
-// ADMIN
 
+// ============================================
+// ADMIN PRODUCT ROUTES
+// ============================================
+
+// CREATE PRODUCT
 router.post(
     "/",
     protect,
@@ -52,6 +64,8 @@ router.post(
     asyncHandler(createProduct)
 );
 
+
+// UPDATE PRODUCT
 router.put(
     "/:id",
     protect,
@@ -60,6 +74,8 @@ router.put(
     asyncHandler(updateProduct)
 );
 
+
+// DELETE PRODUCT
 router.delete(
     "/:id",
     protect,
@@ -67,5 +83,6 @@ router.delete(
     validate(getProductSchema),
     asyncHandler(deleteProduct)
 );
+
 
 module.exports = router;

@@ -9,34 +9,13 @@ const ApiError =
 // GET ALL PRODUCTS
 // ============================================
 
-const getProducts = async (req, res) => {
+const getProducts = async (
+    req,
+    res
+) => {
 
-    const filters = {
-
-        search: req.query.search,
-
-        category: req.query.category,
-
-        minPrice:
-            req.query.minPrice !== undefined
-                ? Number(req.query.minPrice)
-                : undefined,
-
-        maxPrice:
-            req.query.maxPrice !== undefined
-                ? Number(req.query.maxPrice)
-                : undefined,
-
-        page:
-            req.query.page !== undefined
-                ? Number(req.query.page)
-                : 1,
-
-        limit:
-            req.query.limit !== undefined
-                ? Number(req.query.limit)
-                : 10
-    };
+    const filters =
+        req.validated.query;
 
 
     const result =
@@ -58,9 +37,13 @@ const getProductById = async (
     res
 ) => {
 
+    const { id } =
+        req.validated.params;
+
+
     const product =
         await productService.getProductById(
-            req.params.id
+            id
         );
 
 
@@ -87,33 +70,7 @@ const createProduct = async (
 ) => {
 
     const productData =
-        req.body;
-
-
-    if (
-        !productData.name ||
-        !productData.description ||
-        !productData.price ||
-        !productData.category
-    ) {
-
-        throw new ApiError(
-            400,
-            "Name, description, price, and category are required"
-        );
-    }
-
-
-    if (
-        typeof productData.price !== "number" ||
-        productData.price <= 0
-    ) {
-
-        throw new ApiError(
-            400,
-            "Price must be a positive number"
-        );
-    }
+        req.validated.body;
 
 
     const newProduct =
@@ -138,26 +95,15 @@ const updateProduct = async (
 ) => {
 
     const productData =
-        req.body;
+        req.validated.body;
 
-
-    if (
-        !productData.name ||
-        !productData.description ||
-        !productData.price ||
-        !productData.category
-    ) {
-
-        throw new ApiError(
-            400,
-            "Name, description, price, and category are required"
-        );
-    }
+    const { id } =
+        req.validated.params;
 
 
     const updatedProduct =
         await productService.updateProduct(
-            req.params.id,
+            id,
             productData
         );
 
@@ -186,9 +132,13 @@ const deleteProduct = async (
     res
 ) => {
 
+    const { id } =
+        req.validated.params;
+
+
     const deletedProduct =
         await productService.deleteProduct(
-            req.params.id
+            id
         );
 
 
