@@ -1,88 +1,33 @@
-const express =
-    require("express");
 
-const productRoutes =
-    require("./routes/productRoutes");
+const express = require("express");
 
-const authRoutes =
-    require("./routes/authRoutes");
+const productRoutes = require("./routes/productRoutes");
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const cartRoutes = require("./routes/cartRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
-const userRoutes =
-    require("./routes/userRoutes");
+const notFound = require("./middleware/notFoundMiddleware");
+const errorHandler = require("./middleware/errorMiddleware");
 
-const cartRoutes =
-    require("./routes/cartRoutes");
+const app = express();
 
-const orderRoutes =
-    require("./routes/orderRoutes");
+// Parse JSON request bodies.
+app.use(express.json());
 
-const notFound =
-    require("./middleware/notFoundMiddleware");
+// API routes.
+app.use("/api/products", productRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
-const errorHandler =
-    require("./middleware/errorMiddleware");
+// Keep these last.
+app.use(notFound);
+app.use(errorHandler);
 
-
-const app =
-    express();
-
-
-// ============================================
-// GLOBAL MIDDLEWARE
-// ============================================
-
-app.use(
-    express.json()
-);
-
-
-// ============================================
-// ROUTES
-// ============================================
-
-app.use(
-    "/api/products",
-    productRoutes
-);
-
-app.use(
-    "/api/auth",
-    authRoutes
-);
-
-app.use(
-    "/api/users",
-    userRoutes
-);
-
-app.use(
-    "/api/cart",
-    cartRoutes
-);
-
-app.use(
-    "/api/orders",
-    orderRoutes
-);
-
-
-// ============================================
-// 404 HANDLER
-// ============================================
-
-app.use(
-    notFound
-);
-
-
-// ============================================
-// GLOBAL ERROR HANDLER
-// ============================================
-
-app.use(
-    errorHandler
-);
-
-
-module.exports =
-    app;
+module.exports = app;

@@ -1,33 +1,38 @@
-const express =
-    require("express");
+
+const express = require("express");
 
 const {
     createPayment,
-    getPaymentByOrder
-} =
-    require("../controllers/paymentController");
+    getPaymentByOrder,
+    verifyPayment,
+    chapaCallback
+} = require("../controllers/paymentController");
 
-const asyncHandler =
-    require("../utils/asyncHandler");
-
-const protect =
-    require("../middleware/authMiddleware");
-
-const validate =
-    require("../middleware/validateMiddleware");
+const asyncHandler = require("../utils/asyncHandler");
+const protect = require("../middleware/authMiddleware");
+const validate = require("../middleware/validateMiddleware");
 
 const {
     createPaymentSchema,
-    getPaymentByOrderSchema
-} =
-    require("../validators/paymentValidator");
+    getPaymentByOrderSchema,
+    verifyPaymentSchema
+} = require("../validators/paymentValidator");
 
-const router =
-    express.Router();
+const router = express.Router();
 
-router.use(
-    protect
+// Chapa callback: public, but verified server-to-server.
+router.get(
+    "/chapa/callback",
+    asyncHandler(chapaCallback)
 );
+
+router.post(
+    "/chapa/callback",
+    asyncHandler(chapaCallback)
+);
+
+// All customer-facing payment routes below require authentication.
+router.use(protect);
 
 router.post(
     "/",
@@ -36,10 +41,15 @@ router.post(
 );
 
 router.get(
+    "/verify/:txRef",
+    validate(verifyPaymentSchema),
+    asyncHandler(verifyPayment)
+);
+
+router.get(
     "/order/:orderId",
     validate(getPaymentByOrderSchema),
     asyncHandler(getPaymentByOrder)
 );
 
-module.exports =
-    router;
+module.exports = router;

@@ -1,12 +1,14 @@
+
 const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema(
     {
+        // The order this payment attempt belongs to.
+        // An order may have more than one attempt.
         order: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Order",
-            required: true,
-            unique: true
+            required: true
         },
 
         user: {
@@ -18,7 +20,7 @@ const paymentSchema = new mongoose.Schema(
         amount: {
             type: Number,
             required: true,
-            min: 0
+            min: 0.01
         },
 
         currency: {
@@ -29,11 +31,21 @@ const paymentSchema = new mongoose.Schema(
             trim: true
         },
 
+        // The gateway used by our application.
         provider: {
             type: String,
             enum: ["chapa"],
             required: true,
             default: "chapa"
+        },
+
+        // The actual method used by the customer, when
+        // Chapa supplies this information.
+        paymentMethod: {
+            type: String,
+            trim: true,
+            lowercase: true,
+            default: "unknown"
         },
 
         status: {
@@ -48,11 +60,18 @@ const paymentSchema = new mongoose.Schema(
             default: "pending"
         },
 
+        // Our unique reference sent to Chapa.
         transactionReference: {
             type: String,
+            required: true,
             trim: true,
-            unique: true,
-            sparse: true
+            unique: true
+        },
+
+        // URL returned by Chapa for hosted checkout.
+        checkoutUrl: {
+            type: String,
+            trim: true
         },
 
         failureReason: {
@@ -69,9 +88,9 @@ const paymentSchema = new mongoose.Schema(
     }
 );
 
-const Payment = mongoose.model(
-    "Payment",
-    paymentSchema
-);
+// Useful when retrieving payment attempts for an order.
+paymentSchema.index({ order: 1, createdAt: -1 });
+
+const Payment = mongoose.model("Payment", paymentSchema);
 
 module.exports = Payment;
