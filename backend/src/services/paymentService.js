@@ -5,6 +5,16 @@ const Payment = require("../models/Payment");
 const Order = require("../models/Order");
 const User = require("../models/User");
 const ApiError = require("../utils/ApiError");
+const notificationService = require("./notificationService");
+
+// Notification failures should not interrupt payment processing.
+const safelyNotify = async (notification) => {
+    try {
+        await notificationService.createNotification(notification);
+    } catch (error) {
+        console.error("Could not create payment notification:", error.message);
+    }
+};
 
 const getChapaConfig = () => {
     const {
@@ -20,10 +30,7 @@ const getChapaConfig = () => {
         !BACKEND_URL ||
         !FRONTEND_URL
     ) {
-        throw new ApiError(
-            500,
-            "Payment configuration is incomplete"
-        );
+        throw new ApiError(500, "Payment configuration is incomplete");
     }
 
     return {
@@ -39,8 +46,6 @@ const getChapaHeaders = (secretKey) => ({
     "Content-Type": "application/json"
 });
 
-// Split our single User.name field into the fields
-// expected by Chapa.
 const splitFullName = (fullName = "") => {
     const parts = fullName.trim().split(/\s+/).filter(Boolean);
 
@@ -50,10 +55,13 @@ const splitFullName = (fullName = "") => {
     };
 };
 
+// ============================================
+// INITIALIZE PAYMENT
+// ============================================
+
 const createPayment = async (userId, orderId) => {
     const config = getChapaConfig();
 
-    // Find the order AND verify that it belongs to this user.
     const order = await Order.findOne({
         _id: orderId,
         user: userId
@@ -64,21 +72,13 @@ const createPayment = async (userId, orderId) => {
     }
 
     if (order.status === "cancelled") {
-        throw new ApiError(
-            400,
-            "Cannot pay for a cancelled order"
-        );
+        throw new ApiError(400, "Cannot pay for a cancelled order");
     }
 
     if (order.paymentStatus === "paid") {
-        throw new ApiError(
-            400,
-            "Order has already been paid"
-        );
+        throw new ApiError(400, "Order has already been paid");
     }
 
-    // Reuse an active checkout instead of creating
-    // multiple simultaneous payment attempts.
     const activePayment = await Payment.findOne({
         order: order._id,
         status: { $in: ["pending", "processing"] }
@@ -106,7 +106,6 @@ const createPayment = async (userId, orderId) => {
 
     const { firstName, lastName } = splitFullName(user.name);
 
-    // Create our database record before contacting Chapa.
     const txRef =
         `ORDER-${order._id}-${Date.now()}-${Math.random()
             .toString(36)
@@ -164,12 +163,8 @@ const createPayment = async (userId, orderId) => {
         payment.checkoutUrl = checkoutUrl;
         await payment.save();
 
-        return {
-            payment,
-            checkoutUrl
-        };
+        return { payment, checkoutUrl };
     } catch (error) {
-        // Preserve intentional application errors.
         if (error instanceof ApiError) {
             payment.status = "failed";
             payment.failureReason = error.message;
@@ -195,8 +190,10 @@ const createPayment = async (userId, orderId) => {
     }
 };
 
-// Always verify with Chapa's server-side API.
-// Never trust a browser redirect or callback status alone.
+// ============================================
+// VERIFY PAYMENT WITH CHAPA
+// ============================================
+
 const verifyPaymentByReference = async (txRef) => {
     const config = getChapaConfig();
 
@@ -208,7 +205,8 @@ const verifyPaymentByReference = async (txRef) => {
         throw new ApiError(404, "Payment not found");
     }
 
-    // Avoid repeating verification for an already completed payment.
+    // Repeated verification of a completed payment must not
+    // create another success notification.
     if (payment.status === "completed") {
         return payment;
     }
@@ -229,7 +227,7 @@ const verifyPaymentByReference = async (txRef) => {
             error.response?.data || error.message
         );
 
-        // A network/API error is not proof that payment failed.
+        // A connection error does not prove the payment failed.
         throw new ApiError(
             502,
             "Could not verify the payment with Chapa"
@@ -249,7 +247,6 @@ const verifyPaymentByReference = async (txRef) => {
         );
     }
 
-    // Confirm that the response belongs to this transaction.
     if (verified.tx_ref !== txRef) {
         throw new ApiError(
             502,
@@ -260,7 +257,6 @@ const verifyPaymentByReference = async (txRef) => {
     const verifiedAmount = Number(verified.amount);
     const expectedAmount = Number(payment.amount);
 
-    // Compare currency values to two decimal places.
     if (
         !Number.isFinite(verifiedAmount) ||
         Math.round(verifiedAmount * 100) !==
@@ -269,14 +265,17 @@ const verifyPaymentByReference = async (txRef) => {
     ) {
         throw new ApiError(
             409,
-            "Verified payment amount or currency does not match the order"
+            "Verified payment amount or currency does not match"
         );
     }
 
     const providerStatus = verified.status.toLowerCase();
 
+    // ----------------------------------------
+    // VERIFIED SUCCESS
+    // ----------------------------------------
+
     if (providerStatus === "success") {
-        // A refund or failure must never be overwritten as paid.
         if (
             payment.status === "refunded" ||
             payment.status === "failed"
@@ -287,19 +286,6 @@ const verifyPaymentByReference = async (txRef) => {
             );
         }
 
-        payment.status = "completed";
-        payment.paymentMethod =
-            String(
-                verified.method ||
-                verified.payment_method ||
-                "unknown"
-            ).toLowerCase();
-        payment.paidAt = new Date();
-        payment.failureReason = undefined;
-
-        await payment.save();
-
-        // Update the order only after successful verification.
         const order = await Order.findById(payment.order);
 
         if (!order) {
@@ -310,12 +296,22 @@ const verifyPaymentByReference = async (txRef) => {
         }
 
         if (order.status === "cancelled") {
-            // Do not silently treat a cancelled order as fulfilled.
             throw new ApiError(
                 409,
                 "Payment succeeded but the order is cancelled; manual review is required"
             );
         }
+
+        payment.status = "completed";
+        payment.paymentMethod = String(
+            verified.method ||
+            verified.payment_method ||
+            "unknown"
+        ).toLowerCase();
+        payment.paidAt = new Date();
+        payment.failureReason = undefined;
+
+        await payment.save();
 
         order.paymentStatus = "paid";
 
@@ -325,12 +321,34 @@ const verifyPaymentByReference = async (txRef) => {
 
         await order.save();
 
+        // Only notify after the verified payment and order updates.
+        await safelyNotify({
+            recipient: payment.user,
+            type: "payment_success",
+            title: "Payment successful",
+            message: `Payment for order ${order._id} was verified successfully.`,
+            data: {
+                orderId: order._id,
+                paymentId: payment._id,
+                transactionReference: txRef,
+                amount: payment.amount,
+                currency: payment.currency,
+                paymentStatus: payment.status,
+                orderStatus: order.status
+            }
+        });
+
         return payment;
     }
 
-    if (
-        ["failed", "cancelled"].includes(providerStatus)
-    ) {
+    // ----------------------------------------
+    // VERIFIED FAILURE OR CANCELLATION
+    // ----------------------------------------
+
+    if (["failed", "cancelled"].includes(providerStatus)) {
+        // Remember whether this attempt was already marked failed.
+        const wasAlreadyFailed = payment.status === "failed";
+
         payment.status = "failed";
         payment.failureReason =
             `Chapa reported payment status: ${providerStatus}`;
@@ -339,26 +357,44 @@ const verifyPaymentByReference = async (txRef) => {
 
         const order = await Order.findById(payment.order);
 
-        if (
-            order &&
-            order.paymentStatus !== "paid"
-        ) {
+        if (order && order.paymentStatus !== "paid") {
             order.paymentStatus = "failed";
             await order.save();
+
+            // Only notify when this attempt first transitions to failed.
+            if (!wasAlreadyFailed) {
+                await safelyNotify({
+                    recipient: payment.user,
+                    type: "payment_failed",
+                    title: "Payment unsuccessful",
+                    message:
+                        `Payment for order ${order._id} was reported as ${providerStatus} by Chapa.`,
+                    data: {
+                        orderId: order._id,
+                        paymentId: payment._id,
+                        transactionReference: txRef,
+                        paymentStatus: payment.status,
+                        providerStatus
+                    }
+                });
+            }
         }
 
         return payment;
     }
 
-    // Pending/unknown statuses are not successful payments.
+    // Pending or unfamiliar statuses are not payment failures.
     payment.status = "processing";
     await payment.save();
 
     return payment;
 };
 
+// ============================================
+// GET PAYMENTS FOR AN ORDER
+// ============================================
+
 const getPaymentByOrder = async (userId, orderId) => {
-    // Authorization: customers can only view their own orders.
     const order = await Order.findOne({
         _id: orderId,
         user: userId
